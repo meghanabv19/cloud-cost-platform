@@ -166,6 +166,48 @@ def service_breakdown(platform: str) -> pd.DataFrame:
         con.close()
 
 
+def usage_across_platforms() -> pd.DataFrame:
+    """Full per-platform/service/unit usage (all platforms) — the resource view.
+
+    Units differ across platforms (minutes, hours, requests, GB, projects, seconds),
+    so this is intentionally NOT summed into one number — it's grouped for comparison.
+    """
+    if not _live_warehouse():
+        df = _published("service_breakdown")
+        return df.sort_values(["platform", "quantity"], ascending=[True, False]) if not df.empty else df
+    con = _con()
+    try:
+        if _has_table(con, "mart_service_breakdown"):
+            return con.execute(
+                "select * from mart_service_breakdown order by platform, quantity desc nulls last"
+            ).fetch_df()
+        return con.execute(
+            """
+            select platform,
+                   coalesce(nullif(trim(service),''), platform) as service,
+                   coalesce(nullif(trim(unit),''), 'unit')      as unit,
+                   sum(quantity) as quantity, sum(cost) as cost, count(*) as line_items
+            from usage_facts group by 1,2,3
+            order by platform, quantity desc nulls last
+            """
+        ).fetch_df()
+    finally:
+        con.close()
+
+
+def usage_by_unit() -> pd.DataFrame:
+    """Totals grouped by unit across platforms (e.g. all 'Minutes', all 'requests')."""
+    df = usage_across_platforms()
+    if df.empty:
+        return df
+    g = (
+        df.groupby("unit", as_index=False)
+        .agg(quantity=("quantity", "sum"), platforms=("platform", "nunique"))
+        .sort_values("quantity", ascending=False)
+    )
+    return g
+
+
 def raw_rows(platform: str, limit: int = 500) -> pd.DataFrame:
     # raw line items only exist in a live warehouse; deployed mode has aggregates only
     if not _live_warehouse():

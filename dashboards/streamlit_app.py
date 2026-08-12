@@ -47,6 +47,28 @@ def _fmt_usd(v) -> str:
         return "—"
 
 
+def _fmt_qty(v) -> str:
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return "—"
+    return f"{v:,.0f}" if v >= 100 or v == int(v) else f"{v:,.2f}"
+
+
+def _headline_usage(usage) -> list[tuple[str, str]]:
+    """Pick a few human-friendly headline usage numbers from the breakdown."""
+    tiles: list[tuple[str, str]] = []
+    # sum quantity per (service, unit), surface the biggest few
+    grp = (
+        usage.groupby(["service", "unit"], as_index=False)["quantity"].sum()
+        .sort_values("quantity", ascending=False)
+    )
+    for _, r in grp.head(4).iterrows():
+        if r["quantity"] and r["quantity"] > 0:
+            tiles.append((f"{r['service']} ({r['unit']})", _fmt_qty(r["quantity"])))
+    return tiles
+
+
 def page_summary() -> None:
     st.title("📊 Cross-Platform Cost & Usage")
     st.caption("Usage and cost pulled from each platform's own API — no manually-entered data.")
@@ -63,12 +85,49 @@ def page_summary() -> None:
     c2.metric("Platforms reporting", len(summary))
     c3.metric("Metric-only sources", metric_only, help="Report usage but no $ (e.g. free tier / dbt Cloud)")
 
+    # ---- Resource usage across platforms (the real story on a free-tier stack) ----
+    st.subheader("Resource usage across platforms")
+    st.caption(
+        "Everything is currently within free tiers ($0 spend) — so the signal here is "
+        "**what's being consumed**. Units differ per platform, so they're grouped, not summed."
+    )
+    usage = da.usage_across_platforms()
+    if usage.empty:
+        st.info("No usage rows yet.")
+    else:
+        # headline usage tiles for the most meaningful metrics
+        tiles = _headline_usage(usage)
+        if tiles:
+            cols = st.columns(len(tiles))
+            for col, (label, value) in zip(cols, tiles):
+                col.metric(label, value)
+
+        # one chart per unit (minutes, requests, hours, …) comparing platforms
+        for unit in usage["unit"].dropna().unique():
+            sub = usage[usage["unit"] == unit]
+            if sub["quantity"].fillna(0).abs().sum() <= 0:
+                continue
+            st.markdown(f"**{unit}** by platform")
+            chart_df = sub.groupby("platform", as_index=False)["quantity"].sum()
+            st.bar_chart(chart_df, x="platform", y="quantity")
+
+        with st.expander("Full usage table (platform · service · unit · quantity)"):
+            u = usage.copy()
+            u["cost"] = u["cost"].map(_fmt_usd)
+            st.dataframe(
+                u.rename(columns={
+                    "platform": "Platform", "service": "Service", "unit": "Unit",
+                    "quantity": "Quantity", "cost": "Cost", "line_items": "Line items",
+                }),
+                use_container_width=True, hide_index=True,
+            )
+
     st.subheader("Spend over time (all platforms)")
     xdaily = da.cross_platform_daily()
     if not xdaily.empty and xdaily["total_cost"].fillna(0).abs().sum() > 0:
         st.bar_chart(xdaily, x="date", y="total_cost")
     else:
-        st.caption("Everything is currently within free tiers — $0 spend. Usage detail is on each platform page.")
+        st.caption("No paid spend yet — $0 across all platforms. See resource usage above.")
 
     st.subheader("Per-platform")
     show = summary.copy()
