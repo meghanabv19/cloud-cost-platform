@@ -19,21 +19,36 @@ log = logging.getLogger("ingestion")
 
 
 class IngestionSource:
-    #: short platform name written into every row (e.g. "claude", "gcp")
+    #: short platform name written into every row (e.g. "claude", "github")
     platform: str = "base"
 
     def fetch(self) -> list[dict[str, Any]]:  # pragma: no cover - abstract
         """Pull from the API and return rows shaped like the unified schema."""
         raise NotImplementedError(f"{self.platform}: fetch() not implemented yet")
 
+    def fetch_meta(self) -> dict[str, Any] | None:
+        """Optional: account-level metadata (plan, last_active, trial_end, ...).
+
+        Override in a source to populate ``platform_meta``. Returning None skips it.
+        """
+        return None
+
     def run(self, con: "db.duckdb.DuckDBPyConnection | None" = None) -> int:
         own_connection = con is None
         con = con or db.connect(config.settings.duckdb_path)
+        self._con = con  # exposed so self-referential sources (duckdb) can reuse it
         try:
             raw_rows = self.fetch()
             facts = [db.normalize_row(self.platform, **row) for row in raw_rows]
             written = db.write_facts(con, facts)
             log.info("%s: ingested %d rows", self.platform, written)
+            # account metadata is best-effort — never fail ingestion over it
+            try:
+                meta = self.fetch_meta()
+                if meta:
+                    db.write_meta(con, self.platform, **meta)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("%s: meta skipped: %s", self.platform, exc)
             return written
         finally:
             if own_connection:

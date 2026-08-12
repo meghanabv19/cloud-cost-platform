@@ -81,5 +81,30 @@ class SupabaseUsage(IngestionSource):
         return rows
 
 
+    def fetch_meta(self):
+        token = config.supabase_creds()["access_token"]
+        H = {"Authorization": f"Bearer {token}"}
+        projects = self._get("/projects", H) or []
+        if not projects:
+            return None
+        p = projects[0]
+        org = self._get(f"/organizations/{p.get('organization_id')}", H) or {}
+        plan = org.get("plan", "free")
+        return {
+            "plan": plan,
+            "is_free": plan == "free",
+            "account_created": p.get("created_at"),
+            # Supabase Mgmt API doesn't expose a login time; project is the activity unit
+            "last_active": None,
+            "trial_end": None,   # free tier has no end date (but pauses after ~7d idle)
+            "status": p.get("status"),
+            "extra": {
+                "region": p.get("region"),
+                "pg_version": (p.get("database") or {}).get("version"),
+                "note": "free projects pause after ~7 days of inactivity",
+            },
+        }
+
+
 if __name__ == "__main__":
     run_standalone(SupabaseUsage)

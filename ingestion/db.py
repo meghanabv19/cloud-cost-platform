@@ -8,8 +8,8 @@ re-running a day's ingestion updates the same rows instead of duplicating them.
 Unified schema (per the project spec):
     platform, resource, date, quantity, unit, cost   ← the backbone
 plus optional drill-down dimensions (service, sku, project, region) so a source
-like GCP can carry per-SKU detail without needing its own table. ``cost`` is
-nullable for sources that report metrics rather than dollars (e.g. dbt Cloud).
+can carry per-service/per-app detail without needing its own table. ``cost`` is
+nullable for sources that report metrics rather than dollars (e.g. dbt Cloud, DuckDB).
 """
 from __future__ import annotations
 
@@ -73,12 +73,37 @@ create table if not exists {FACTS_TABLE} (
 """
 
 
+META_TABLE = "platform_meta"
+
+# Account-level state per platform (one row each): plan, whether it's free, last
+# activity, and any free-tier/trial END date (null = free indefinitely).
+_META_DDL = f"""
+create table if not exists {META_TABLE} (
+    platform        varchar primary key,
+    plan            varchar,
+    is_free         boolean,
+    last_active     timestamp,       -- last login/activity we can observe
+    trial_end       timestamp,       -- free-tier / trial expiry (null = no end date)
+    account_created timestamp,
+    status          varchar,
+    extra           varchar,         -- JSON of platform-specific extras
+    synced_at       timestamp default now()
+);
+"""
+
+META_COLUMNS: tuple[str, ...] = (
+    "platform", "plan", "is_free", "last_active", "trial_end",
+    "account_created", "status", "extra", "synced_at",
+)
+
+
 def connect(db_path: str | Path) -> duckdb.DuckDBPyConnection:
     """Open (creating if needed) the DuckDB warehouse and ensure the schema exists."""
     db_path = Path(db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(str(db_path))
     con.execute(_DDL)
+    con.execute(_META_DDL)
     return con
 
 
@@ -191,3 +216,46 @@ def platforms(con: duckdb.DuckDBPyConnection) -> list[str]:
     return [r[0] for r in con.execute(
         f"select distinct platform from {FACTS_TABLE} order by 1"
     ).fetchall()]
+
+
+def _coerce_ts(value: Any) -> Any:
+    """Accept ISO strings / unix-ms / datetime → ISO string (or None)."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):  # unix milliseconds (Vercel) or seconds
+        from datetime import datetime, timezone
+
+        secs = value / 1000 if value > 1e12 else value
+        return datetime.fromtimestamp(secs, tz=timezone.utc).isoformat()
+    return str(value)
+
+
+def write_meta(con: duckdb.DuckDBPyConnection, platform: str, **fields: Any) -> None:
+    """Upsert one account-metadata row for a platform."""
+    import json as _json
+
+    extra = fields.pop("extra", None)
+    row = {
+        "platform": platform,
+        "plan": fields.pop("plan", None),
+        "is_free": fields.pop("is_free", None),
+        "last_active": _coerce_ts(fields.pop("last_active", None)),
+        "trial_end": _coerce_ts(fields.pop("trial_end", None)),
+        "account_created": _coerce_ts(fields.pop("account_created", None)),
+        "status": fields.pop("status", None),
+        "extra": _json.dumps({**(extra or {}), **fields}, default=str, sort_keys=True)
+        if (extra or fields) else None,
+        "synced_at": datetime.utcnow(),
+    }
+    placeholders = ", ".join(["?"] * len(META_COLUMNS))
+    cols = ", ".join(META_COLUMNS)
+    updates = ", ".join(f"{c} = excluded.{c}" for c in META_COLUMNS if c != "platform")
+    con.execute(
+        f"insert into {META_TABLE} ({cols}) values ({placeholders}) "
+        f"on conflict (platform) do update set {updates}",
+        tuple(row[c] for c in META_COLUMNS),
+    )
+
+
+def read_meta(con: duckdb.DuckDBPyConnection):
+    return con.execute(f"select * from {META_TABLE} order by platform").fetch_df()

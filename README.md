@@ -10,13 +10,15 @@ platforms — using only real, programmatic APIs.** No manually-entered data any
 
 | Platform | How it's pulled | Cost captured? |
 | --- | --- | --- |
-| **Claude** (Anthropic) | Admin API — Usage & Cost endpoints | ✅ $ |
-| **AWS** | Cost & Usage Report (CUR) parquet — *not* Cost Explorer | ✅ $ (frozen sample, see below) |
-| **GCP** | BigQuery billing export (per-SKU) + Cloud Billing API | ✅ $ — deepest analysis |
-| **GitHub** | REST billing/usage (Actions minutes, storage) | ✅ $ / metrics |
-| **Supabase** | Management API (project usage/analytics) | metrics (often no $ on free tier) |
-| **dbt Cloud** | Admin/Discovery API (run history, duration, success) | metrics only |
+| **Claude** (Anthropic) | Admin API — Usage & Cost endpoints | ✅ $ (needs an admin key) |
+| **GitHub** | REST billing/usage (Actions minutes, Codespaces, storage) | ✅ $ / metrics |
 | **Vercel** | Billing/usage API (FOCUS v1.3) | ✅ $ |
+| **Supabase** | Management API (project usage/analytics) | metrics (no $ on free tier) |
+| **dbt Cloud** | Admin API (run history, duration, success) | metrics only |
+| **DuckDB** | self-monitoring — reports its own warehouse size/rows | metrics only (local & free) |
+
+Each source also records **account metadata** (plan, last active, and any
+free-tier / trial **end date**) so the dashboard can flag deadlines.
 
 ## Architecture
 
@@ -50,31 +52,15 @@ Every source normalizes into one table, `usage_facts`:
 - **GitHub Actions** — <!-- why -->
 - **Streamlit + Databricks Free** — <!-- why -->
 
-### A deliberate tradeoff: AWS runs on a frozen sample
-AWS ingestion reads a **captured sample**, not a live source — on purpose.
-
-CUR is the *right* AWS source (Cost Explorer's API charges $0.01 per request), but
-CUR's **only delivery destination is an S3 bucket**, and S3 storage is no longer free
-indefinitely for new accounts. Keeping a live CUR bucket running would introduce
-exactly the kind of ongoing storage cost the rest of this stack was designed to avoid.
-
-So AWS is **demo-then-freeze**: run CUR live briefly to capture *real* line items, commit
-that capture to `sample-data/aws_cur_sample.parquet`, then tear the AWS side down. The
-reader (`aws_cur_reader.py`) supports `AWS_SOURCE=live` or `AWS_SOURCE=sample` (default),
-so the daily pipeline keeps producing real, representative AWS data with zero standing
-cost. It's a conscious cost-engineering decision, consistent with the project's premise —
-not a gap.
-
 ## Repo layout
 
 ```
-ingestion/    db.py (DuckDB helper + unified schema), config.py (env-only config),
-              base.py (shared pattern), one <source>_usage.py per platform
+ingestion/    db.py (DuckDB helper + unified schema + platform_meta), config.py
+              (env-only config), base.py (shared pattern), one <source>_usage.py per platform
 dbt/          staging → intermediate → marts models against DuckDB
 analysis/     anomaly_detection.py, forecast.py, threshold_alerts.py
-dashboards/   streamlit_app.py (multi-page) + databricks/ export scripts
+dashboards/   streamlit_app.py (multi-page) + published/ (committed marts) + databricks/ exports
 config/       thresholds.yml (per-platform spend thresholds)
-sample-data/  frozen real AWS CUR capture
 tests/        pytest for anomaly + threshold logic
 .github/workflows/  daily_pipeline.yml (ingest → dbt → analyze → archive → alert)
 ```
@@ -89,8 +75,9 @@ pip install -r requirements.txt -r requirements-pipeline.txt
 pip install -e .                      # makes `from ingestion.db import ...` work
 cp .env.example .env.local            # fill in the sources you have credentials for
 
-# run one source standalone (once its fetch() is implemented):
-python -m ingestion.gcp_billing
+# run all sources (or one standalone):
+python -m ingestion                 # every source, resilient
+python -m ingestion.github_usage    # just one
 
 # transform + test:
 cd dbt && dbt build

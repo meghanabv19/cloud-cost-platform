@@ -3,13 +3,12 @@
 # anomaly detector flags a point. Use `null` for metric-only sources (no $ spend),
 # which are then evaluated by the anomaly detector only.
 #
-# Any value can be overridden per-run via an env var, e.g. THRESHOLD_GCP=120.
+# Any value can be overridden per-run via an env var, e.g. THRESHOLD_GITHUB=20.
 
 thresholds:
   claude: 50
-  aws: 20
-  gcp: 100
   github: 10
-  supabase: 25
+  supabase: 25       # free tier today (metric-only), threshold ready if it ever bills
   vercel: 20
-  dbt_cloud: null   # run metrics, not dollars — anomaly detection only
+  dbt_cloud: null    # run metrics, not dollars — anomaly detection only
+  duckdb: null       # local embedded storage — metric-only (size/rows)

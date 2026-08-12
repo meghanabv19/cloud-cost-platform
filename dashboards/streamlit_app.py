@@ -31,12 +31,11 @@ st.set_page_config(page_title="Cloud Cost Platform", page_icon="📊", layout="w
 
 PLATFORM_LABEL = {
     "claude": "Claude (Anthropic)",
-    "aws": "AWS",
-    "gcp": "Google Cloud",
     "github": "GitHub",
+    "vercel": "Vercel",
     "supabase": "Supabase",
     "dbt_cloud": "dbt Cloud",
-    "vercel": "Vercel",
+    "duckdb": "DuckDB",
 }
 
 
@@ -53,6 +52,56 @@ def _fmt_qty(v) -> str:
     except (TypeError, ValueError):
         return "—"
     return f"{v:,.0f}" if v >= 100 or v == int(v) else f"{v:,.2f}"
+
+
+def _days_until(value) -> int | None:
+    import pandas as pd
+    if value is None or (isinstance(value, float)):
+        return None
+    ts = pd.to_datetime(value, errors="coerce", utc=True)
+    if ts is None or pd.isna(ts):
+        return None
+    return (ts.date() - pd.Timestamp.utcnow().date()).days
+
+
+def _fmt_when(value) -> str:
+    import pandas as pd
+    ts = pd.to_datetime(value, errors="coerce", utc=True)
+    return "—" if (ts is None or pd.isna(ts)) else ts.strftime("%d %b %Y")
+
+
+def _accounts_section() -> None:
+    import pandas as pd
+    acc = da.accounts()
+    st.subheader("Accounts & free-tier status")
+    if acc is None or acc.empty:
+        st.caption("No account metadata yet.")
+        return
+
+    # deadline banners for any free-tier / trial ending soon
+    for _, r in acc.iterrows():
+        d = _days_until(r.get("trial_end"))
+        if d is not None:
+            plat = PLATFORM_LABEL.get(r["platform"], r["platform"])
+            when = _fmt_when(r.get("trial_end"))
+            if d < 0:
+                st.error(f"⛔ **{plat}** free/trial period ended on {when}.")
+            elif d <= 14:
+                st.warning(f"⚠️ **{plat}** {r.get('plan','')} free/trial ends **{when}** — {d} day(s) left.")
+            else:
+                st.info(f"🗓️ **{plat}** free/trial ends {when} ({d} days).")
+
+    show = acc.copy()
+    show["Platform"] = show["platform"].map(lambda p: PLATFORM_LABEL.get(p, p))
+    show["Plan"] = show["plan"]
+    show["Free"] = show["is_free"].map(lambda b: "✅" if b else "—")
+    show["Last active"] = show["last_active"].map(_fmt_when)
+    show["Free-tier ends"] = show["trial_end"].map(lambda v: _fmt_when(v) if not pd.isna(v) else "no end date")
+    show["Status"] = show["status"]
+    st.dataframe(
+        show[["Platform", "Plan", "Free", "Last active", "Free-tier ends", "Status"]],
+        use_container_width=True, hide_index=True,
+    )
 
 
 def _headline_usage(usage) -> list[tuple[str, str]]:
@@ -84,6 +133,8 @@ def page_summary() -> None:
     c1.metric("Tracked spend", _fmt_usd(total))
     c2.metric("Platforms reporting", len(summary))
     c3.metric("Metric-only sources", metric_only, help="Report usage but no $ (e.g. free tier / dbt Cloud)")
+
+    _accounts_section()
 
     # ---- Resource usage across platforms (the real story on a free-tier stack) ----
     st.subheader("Resource usage across platforms")
@@ -149,6 +200,19 @@ def page_platform() -> None:
         return
     choice = st.selectbox("Platform", plats, format_func=lambda p: PLATFORM_LABEL.get(p, p))
 
+    # account header: plan · last active · free-tier end
+    acc = da.accounts()
+    if acc is not None and not acc.empty:
+        row = acc[acc["platform"] == choice]
+        if not row.empty:
+            r = row.iloc[0]
+            a1, a2, a3, a4 = st.columns(4)
+            a1.metric("Plan", str(r.get("plan") or "—"))
+            a2.metric("Free tier", "Yes" if r.get("is_free") else "No")
+            a3.metric("Last active", _fmt_when(r.get("last_active")))
+            import pandas as pd
+            a4.metric("Free-tier ends", _fmt_when(r.get("trial_end")) if not pd.isna(r.get("trial_end")) else "no end date")
+
     daily = da.platform_daily(choice)
     breakdown = da.service_breakdown(choice)
 
@@ -173,6 +237,23 @@ def page_platform() -> None:
                 "service": "Service", "unit": "Unit", "quantity": "Quantity",
                 "cost": "Cost", "line_items": "Line items",
                 "first_seen": "First", "last_seen": "Last",
+            }).drop(columns=["platform"], errors="ignore"),
+            use_container_width=True, hide_index=True,
+        )
+
+    # application-level detail (per app/resource within the platform)
+    st.subheader("By application / resource")
+    apps = da.application_breakdown(choice)
+    if apps.empty:
+        st.caption("No application-level rows.")
+    else:
+        a = apps.copy()
+        a["cost"] = a["cost"].map(_fmt_usd)
+        st.dataframe(
+            a.rename(columns={
+                "application": "Application", "service": "Service", "unit": "Unit",
+                "quantity": "Quantity", "cost": "Cost", "line_items": "Line items",
+                "last_seen": "Last seen",
             }).drop(columns=["platform"], errors="ignore"),
             use_container_width=True, hide_index=True,
         )
@@ -202,9 +283,9 @@ DuckDB (hot) + R2 (cold)  →  this Streamlit app  +  Databricks-ready exports
 `platform · resource · service · sku · project · region · date · quantity · unit · cost`
 (`cost` is nullable — some sources report usage metrics, not dollars.)
 
-**Free-tier by design.** DuckDB + Parquet for storage, Cloudflare R2 for cold archive
-(no S3), GitHub Actions for scheduling. AWS runs on a captured CUR sample by design —
-see the README for the full rationale.
+**Free-tier by design.** DuckDB + Parquet for storage, Cloudflare R2 for cold archive,
+GitHub Actions for scheduling. Sources: Claude, GitHub, Vercel, Supabase, dbt Cloud, and
+DuckDB itself (self-monitoring). Each also reports plan · last-active · free-tier end date.
         """
     )
 

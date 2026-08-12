@@ -56,11 +56,6 @@ jobs:
           DBT_CLOUD_ACCOUNT_ID: ${{ secrets.DBT_CLOUD_ACCOUNT_ID }}
           DBT_CLOUD_API_HOST: ${{ secrets.DBT_CLOUD_API_HOST }}
           ANTHROPIC_ADMIN_KEY: ${{ secrets.ANTHROPIC_ADMIN_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_BILLING_BQ_PROJECT: ${{ secrets.GCP_BILLING_BQ_PROJECT }}
-          GCP_BILLING_BQ_DATASET: ${{ secrets.GCP_BILLING_BQ_DATASET }}
-          GCP_BILLING_BQ_TABLE: ${{ secrets.GCP_BILLING_BQ_TABLE }}
-          AWS_SOURCE: ${{ vars.AWS_SOURCE || 'sample' }}
         run: python -m ingestion
 
       # --- 2. dbt TRANSFORM + TEST ---

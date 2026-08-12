@@ -78,6 +78,33 @@ class DbtCloudUsage(IngestionSource):
         return rows
 
 
+    def fetch_meta(self):
+        creds = config.dbt_cloud_creds()
+        H = {"Authorization": f"Token {creds['token']}", "Accept": "application/json"}
+        base = f"https://{creds['host']}/api/v2/accounts/{creds['account_id']}"
+        acct = requests.get(f"{base}/", headers=H, timeout=30)
+        m = acct.json().get("data", {}) if acct.ok else {}
+        plan = m.get("plan")
+        trial_end = m.get("trial_end_date")
+        # last activity = most recent run finish (if any)
+        last_active = None
+        runs = requests.get(f"{base}/runs/", headers=H,
+                            params={"limit": 1, "order_by": "-finished_at"}, timeout=30)
+        if runs.ok:
+            data = runs.json().get("data", [])
+            if data:
+                last_active = data[0].get("finished_at") or data[0].get("created_at")
+        return {
+            "plan": plan,
+            "is_free": bool(plan and "developer" in plan),
+            "account_created": m.get("created_at"),
+            "last_active": last_active,
+            "trial_end": trial_end,     # e.g. dbt Cloud Developer trial expiry
+            "status": "trial" if trial_end else "active",
+            "extra": {"name": m.get("name"), "developer_seats": m.get("developer_seats")},
+        }
+
+
 def _to_seconds(val: Any) -> float | None:
     if val is None:
         return None

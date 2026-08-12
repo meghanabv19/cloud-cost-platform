@@ -10,16 +10,14 @@ import logging
 
 from . import config, db
 from .claude_usage import ClaudeUsage
-from .aws_cur_reader import AwsCurReader
-from .gcp_billing import GcpBilling
 from .github_usage import GithubUsage
 from .supabase_usage import SupabaseUsage
 from .dbt_cloud_usage import DbtCloudUsage
 from .vercel_usage import VercelUsage
+from .duckdb_usage import DuckdbUsage
 
 SOURCES = [
-    GithubUsage, VercelUsage, SupabaseUsage, DbtCloudUsage,
-    GcpBilling, AwsCurReader, ClaudeUsage,
+    GithubUsage, VercelUsage, SupabaseUsage, DbtCloudUsage, DuckdbUsage, ClaudeUsage,
 ]
 
 log = logging.getLogger("ingestion")

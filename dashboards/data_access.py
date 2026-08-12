@@ -208,6 +208,44 @@ def usage_by_unit() -> pd.DataFrame:
     return g
 
 
+def accounts() -> pd.DataFrame:
+    """Account-level metadata per platform: plan, last active, free-tier/trial end."""
+    if not _live_warehouse():
+        return _published("platform_meta")
+    con = _con()
+    try:
+        if _has_table(con, "platform_meta"):
+            return con.execute("select * from platform_meta order by platform").fetch_df()
+        return pd.DataFrame()
+    finally:
+        con.close()
+
+
+def application_breakdown(platform: str) -> pd.DataFrame:
+    """Application-level detail: per resource/app within a platform."""
+    if not _live_warehouse():
+        df = _published("application_breakdown")
+        return df[df["platform"] == platform] if not df.empty else df
+    con = _con()
+    try:
+        return con.execute(
+            """
+            select platform,
+                   coalesce(nullif(trim(resource),''),'—') as application,
+                   coalesce(nullif(trim(service),''),platform) as service,
+                   coalesce(nullif(trim(unit),''),'unit') as unit,
+                   sum(quantity) as quantity, sum(cost) as cost, count(*) as line_items,
+                   max(cast(date as date)) as last_seen
+            from usage_facts where platform = ?
+            group by 1,2,3,4
+            order by cost desc nulls last, quantity desc nulls last
+            """,
+            [platform],
+        ).fetch_df()
+    finally:
+        con.close()
+
+
 def raw_rows(platform: str, limit: int = 500) -> pd.DataFrame:
     # raw line items only exist in a live warehouse; deployed mode has aggregates only
     if not _live_warehouse():

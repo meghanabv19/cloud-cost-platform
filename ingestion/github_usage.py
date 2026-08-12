@@ -69,5 +69,32 @@ class GithubUsage(IngestionSource):
         return rows
 
 
+    def fetch_meta(self):
+        creds = config.github_creds()
+        H = {
+            "Authorization": f"Bearer {creds['token']}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "cloud-cost-platform",
+        }
+        user = requests.get(f"{API}/user", headers=H, timeout=30).json()
+        plan = (user.get("plan") or {}).get("name")
+        # "last active" ≈ most recent push across repos (GitHub doesn't expose login)
+        repos = requests.get(
+            f"{API}/user/repos?sort=pushed&per_page=1", headers=H, timeout=30
+        ).json()
+        last_active = repos[0]["pushed_at"] if isinstance(repos, list) and repos else user.get("updated_at")
+        last_repo = repos[0]["name"] if isinstance(repos, list) and repos else None
+        return {
+            "plan": plan,
+            "is_free": plan == "free",
+            "account_created": user.get("created_at"),
+            "last_active": last_active,
+            "trial_end": None,          # GitHub Free has no end date
+            "status": "active",
+            "extra": {"last_active_repo": last_repo, "storage_bytes": (user.get("plan") or {}).get("space")},
+        }
+
+
 if __name__ == "__main__":
     run_standalone(GithubUsage)

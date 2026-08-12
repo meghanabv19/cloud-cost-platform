@@ -95,5 +95,34 @@ class VercelUsage(IngestionSource):
         ]
 
 
+    def fetch_meta(self):
+        H = self._headers()
+        params = self._team_param()
+        user = requests.get(f"{API}/v2/user", headers=H, timeout=30).json().get("user", {})
+        billing = user.get("billing") or {}
+        plan = billing.get("plan")
+        trial = billing.get("trial") or {}
+        # last activity ≈ most recent deployment
+        deps = requests.get(
+            f"{API}/v6/deployments", headers=H, params={**params, "limit": 1}, timeout=30
+        )
+        last_active = None
+        last_name = None
+        if deps.ok:
+            d = deps.json().get("deployments", [])
+            if d:
+                last_active = d[0].get("createdAt")  # unix ms
+                last_name = d[0].get("name")
+        return {
+            "plan": plan,
+            "is_free": plan == "hobby",
+            "account_created": user.get("createdAt"),   # unix ms
+            "last_active": last_active,
+            "trial_end": trial.get("end"),              # null on hobby (free forever)
+            "status": billing.get("status"),
+            "extra": {"last_deployment": last_name},
+        }
+
+
 if __name__ == "__main__":
     run_standalone(VercelUsage)

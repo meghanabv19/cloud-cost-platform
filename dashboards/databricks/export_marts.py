@@ -45,6 +45,18 @@ TARGETS: dict[str, str] = {
                count(distinct platform) as platforms_reporting
         from usage_facts group by cast(date as date) order by 1
     """,
+    # account-level metadata (plan, last active, free-tier/trial end)
+    "platform_meta": "select * from platform_meta",
+    # application-level breakdown (per platform → per resource/app)
+    "application_breakdown": """
+        select platform,
+               coalesce(nullif(trim(resource),''),'—') as application,
+               coalesce(nullif(trim(service),''),platform) as service,
+               coalesce(nullif(trim(unit),''),'unit') as unit,
+               sum(quantity) as quantity, sum(cost) as cost, count(*) as line_items,
+               max(cast(date as date)) as last_seen
+        from usage_facts group by 1,2,3,4 order by platform, cost desc nulls last, quantity desc nulls last
+    """,
 }
 
 

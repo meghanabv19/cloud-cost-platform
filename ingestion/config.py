@@ -70,10 +70,6 @@ class Settings:
     alert_email_from: str | None = None
     alert_email_to: str | None = None
 
-    # AWS CUR mode: "sample" (default, reads a committed parquet) or "live" (S3)
-    aws_source: str = "sample"
-    aws_cur_sample_path: str = "sample-data/aws_cur_sample.parquet"
-
     def r2_endpoint_url(self) -> str | None:
         if self.r2_endpoint:
             return self.r2_endpoint
@@ -99,9 +95,6 @@ def _load_settings() -> Settings:
     s.smtp_password = env("SMTP_PASSWORD")
     s.alert_email_from = env("ALERT_EMAIL_FROM") or s.smtp_user
     s.alert_email_to = env("ALERT_EMAIL_TO")
-
-    s.aws_source = (env("AWS_SOURCE", "sample") or "sample").lower()
-    s.aws_cur_sample_path = env("AWS_CUR_SAMPLE_PATH", "sample-data/aws_cur_sample.parquet")
     return s
 
 
@@ -111,30 +104,6 @@ settings = _load_settings()
 # ---- per-source credential helpers (called lazily, only where needed) ----------
 def claude_creds() -> dict[str, Any]:
     return {"admin_key": env("ANTHROPIC_ADMIN_KEY", required=True)}
-
-
-def aws_creds() -> dict[str, Any]:
-    return {
-        "source": settings.aws_source,
-        "sample_path": settings.aws_cur_sample_path,
-        "access_key_id": env("AWS_ACCESS_KEY_ID"),
-        "secret_access_key": env("AWS_SECRET_ACCESS_KEY"),
-        "region": env("AWS_REGION", "us-east-1"),
-        "s3_bucket": env("AWS_CUR_S3_BUCKET"),
-        "s3_prefix": env("AWS_CUR_S3_PREFIX", ""),
-    }
-
-
-def gcp_creds() -> dict[str, Any]:
-    return {
-        # Either a path (GOOGLE_APPLICATION_CREDENTIALS) or inline JSON (GCP_SA_KEY)
-        "sa_key_json": env("GCP_SA_KEY"),
-        "credentials_path": env("GOOGLE_APPLICATION_CREDENTIALS"),
-        "bq_project": env("GCP_BILLING_BQ_PROJECT", required=True),
-        "bq_dataset": env("GCP_BILLING_BQ_DATASET", required=True),
-        "bq_table": env("GCP_BILLING_BQ_TABLE", required=True),
-        "billing_account_id": env("GCP_BILLING_ACCOUNT_ID"),
-    }
 
 
 def github_creds() -> dict[str, Any]:

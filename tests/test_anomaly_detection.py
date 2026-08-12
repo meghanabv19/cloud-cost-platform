@@ -28,10 +28,10 @@ def test_iqr_flags_low_and_high_outliers():
 def test_detect_series_reports_platform_and_method():
     values = [5, 5, 5, 5, 5, 5, 5, 300]
     dates = [f"2026-08-{i+1:02d}" for i in range(len(values))]
-    anomalies = detect_series(dates, values, platform="gcp")
+    anomalies = detect_series(dates, values, platform="vercel")
     assert len(anomalies) == 1
     a = anomalies[0]
-    assert a.platform == "gcp"
+    assert a.platform == "vercel"
     assert a.date == "2026-08-08"
     assert "zscore" in a.method or "iqr" in a.method
     assert a.value == 300.0

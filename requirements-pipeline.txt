@@ -9,9 +9,6 @@ tenacity>=8.2
 # Cold archive (Cloudflare R2 via S3 API)
 boto3>=1.34
 
-# GCP (primary cost source)
-google-cloud-bigquery>=3.20
-google-cloud-billing>=1.13
 
 # Transform (pin to stable 1.9 — avoids the dbt 2.0 "Fusion" pre-release)
 dbt-core>=1.9,<1.10
