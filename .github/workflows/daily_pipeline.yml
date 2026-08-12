@@ -1,0 +1,124 @@
+name: daily_pipeline
+
+# Ingest → dbt → analysis → retention/archival → alerts, once a day.
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC daily
+  workflow_dispatch: {}
+
+concurrency:
+  group: daily-pipeline
+  cancel-in-progress: false
+
+env:
+  DUCKDB_PATH: data/warehouse.duckdb
+  # exposed for `if:` gating of the optional R2 steps (empty when R2 isn't set up)
+  R2_BUCKET: ${{ secrets.R2_BUCKET }}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -e .
+
+      # --- optional: restore hot warehouse from R2 (durable across runs) ---
+      - name: Restore warehouse from R2
+        if: ${{ env.R2_BUCKET != '' }}
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: python -c "from ingestion.retention import _r2_client; import os,pathlib; \
+          c=_r2_client(); pathlib.Path('data').mkdir(exist_ok=True); \
+          (c and c.download_file(os.environ['R2_BUCKET'],'hot/warehouse.duckdb','data/warehouse.duckdb')) or print('no R2 restore')" || echo "fresh warehouse"
+
+      # --- 1. INGESTION (all sources; resilient) ---
+      - name: Ingest all sources
+        env:
+          GH_BILLING_TOKEN: ${{ secrets.GH_BILLING_TOKEN }}
+          GITHUB_USERNAME: ${{ secrets.GH_USERNAME }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          DBT_CLOUD_API_TOKEN: ${{ secrets.DBT_CLOUD_API_TOKEN }}
+          DBT_CLOUD_ACCOUNT_ID: ${{ secrets.DBT_CLOUD_ACCOUNT_ID }}
+          DBT_CLOUD_API_HOST: ${{ secrets.DBT_CLOUD_API_HOST }}
+          ANTHROPIC_ADMIN_KEY: ${{ secrets.ANTHROPIC_ADMIN_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_BILLING_BQ_PROJECT: ${{ secrets.GCP_BILLING_BQ_PROJECT }}
+          GCP_BILLING_BQ_DATASET: ${{ secrets.GCP_BILLING_BQ_DATASET }}
+          GCP_BILLING_BQ_TABLE: ${{ secrets.GCP_BILLING_BQ_TABLE }}
+          AWS_SOURCE: ${{ vars.AWS_SOURCE || 'sample' }}
+        run: python -m ingestion
+
+      # --- 2. dbt TRANSFORM + TEST ---
+      - name: dbt build
+        working-directory: dbt
+        env:
+          DUCKDB_PATH: ${{ github.workspace }}/data/warehouse.duckdb
+        run: |
+          dbt deps
+          dbt build --profiles-dir .
+
+      # --- 3. ANALYSIS (anomaly detection) ---
+      - name: Analysis — anomaly detection
+        run: python -m analysis.anomaly_detection
+
+      # --- 4. RETENTION / ARCHIVAL (hot → R2, then trim) ---
+      - name: Retention / archival
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: python -m ingestion.retention
+
+      # --- 5. ALERTS (threshold + anomaly → email) ---
+      - name: Threshold & anomaly alerts
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+        run: python -m analysis.threshold_alerts
+
+      # --- exports for the dashboard / Databricks ---
+      - name: Export marts (Parquet + CSV)
+        run: python dashboards/databricks/export_marts.py
+
+      # --- optional: back up hot warehouse to R2 ---
+      - name: Back up warehouse to R2
+        if: ${{ env.R2_BUCKET != '' }}
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: python -c "from ingestion.retention import _r2_client; import os; \
+          c=_r2_client(); c and c.upload_file('data/warehouse.duckdb',os.environ['R2_BUCKET'],'hot/warehouse.duckdb'); print('backed up' if c else 'no R2')"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-output
+          path: |
+            data/exports/
+            data/last_alert.html
+          if-no-files-found: ignore
+
+      - name: Report
+        if: always()
+        run: echo "daily_pipeline finished with status=${{ job.status }}"
