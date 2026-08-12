@@ -83,7 +83,9 @@ tests/        pytest for anomaly + threshold logic
 
 ```bash
 python3.11 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+# requirements.txt = slim dashboard deps (what Streamlit Cloud installs);
+# requirements-pipeline.txt = full ingestion/dbt/analysis deps.
+pip install -r requirements.txt -r requirements-pipeline.txt
 pip install -e .                      # makes `from ingestion.db import ...` work
 cp .env.example .env.local            # fill in the sources you have credentials for
 

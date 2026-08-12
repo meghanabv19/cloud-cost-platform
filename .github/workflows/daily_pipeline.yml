@@ -18,6 +18,8 @@ env:
 jobs:
   run:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # to commit refreshed dashboard data back to the repo
     steps:
       - uses: actions/checkout@v4
 
@@ -28,7 +30,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          pip install -r requirements.txt -r requirements-pipeline.txt
           pip install -e .
 
       # --- optional: restore hot warehouse from R2 (durable across runs) ---
@@ -97,6 +99,19 @@ jobs:
       # --- exports for the dashboard / Databricks ---
       - name: Export marts (Parquet + CSV)
         run: python dashboards/databricks/export_marts.py
+
+      # --- publish refreshed data so the deployed Streamlit app updates ---
+      - name: Publish dashboard data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dashboards/published
+          if git diff --cached --quiet; then
+            echo "no dashboard data changes"
+          else
+            git commit -m "chore: refresh published dashboard data [skip ci]"
+            git push
+          fi
 
       # --- optional: back up hot warehouse to R2 ---
       - name: Back up warehouse to R2

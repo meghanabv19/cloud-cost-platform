@@ -17,6 +17,33 @@ import pandas as pd
 _ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = os.environ.get("DUCKDB_PATH", str(_ROOT / "data" / "warehouse.duckdb"))
 
+# committed mart Parquet files — the data source when there's no live warehouse
+# (e.g. on Streamlit Community Cloud). Written by dashboards/databricks/export_marts.py.
+PUBLISHED = Path(__file__).resolve().parent / "published"
+
+
+def _live_warehouse() -> bool:
+    """True when a DuckDB warehouse with usage_facts exists (local/dev)."""
+    if not Path(DB_PATH).exists():
+        return False
+    con = duckdb.connect(DB_PATH, read_only=True)
+    try:
+        return _has_table(con, "usage_facts")
+    finally:
+        con.close()
+
+
+def _published(name: str) -> pd.DataFrame:
+    """Read a committed mart parquet (deployed/no-warehouse path)."""
+    f = PUBLISHED / f"{name}.parquet"
+    if not f.exists():
+        return pd.DataFrame()
+    con = duckdb.connect()  # in-memory; DuckDB reads parquet natively
+    try:
+        return con.execute(f"select * from read_parquet('{f.as_posix()}')").fetch_df()
+    finally:
+        con.close()
+
 
 def _con() -> duckdb.DuckDBPyConnection:
     # read-only so the dashboard can never mutate the warehouse
@@ -38,6 +65,8 @@ def _q(sql: str, params: list | None = None) -> pd.DataFrame:
 
 # ---- headline / summary --------------------------------------------------------
 def platform_summary() -> pd.DataFrame:
+    if not _live_warehouse():
+        return _published("platform_summary")
     con = _con()
     try:
         if _has_table(con, "mart_platform_summary"):
@@ -61,6 +90,8 @@ def platform_summary() -> pd.DataFrame:
 
 
 def cross_platform_daily() -> pd.DataFrame:
+    if not _live_warehouse():
+        return _published("cross_platform_daily")
     con = _con()
     try:
         if _has_table(con, "mart_cross_platform_daily"):
@@ -83,6 +114,9 @@ def cross_platform_daily() -> pd.DataFrame:
 
 # ---- per-platform detail -------------------------------------------------------
 def platform_daily(platform: str) -> pd.DataFrame:
+    if not _live_warehouse():
+        df = _published("platform_daily")
+        return df[df["platform"] == platform] if not df.empty else df
     con = _con()
     try:
         if _has_table(con, "mart_platform_daily"):
@@ -104,6 +138,9 @@ def platform_daily(platform: str) -> pd.DataFrame:
 
 
 def service_breakdown(platform: str) -> pd.DataFrame:
+    if not _live_warehouse():
+        df = _published("service_breakdown")
+        return df[df["platform"] == platform] if not df.empty else df
     con = _con()
     try:
         if _has_table(con, "mart_service_breakdown"):
@@ -130,6 +167,9 @@ def service_breakdown(platform: str) -> pd.DataFrame:
 
 
 def raw_rows(platform: str, limit: int = 500) -> pd.DataFrame:
+    # raw line items only exist in a live warehouse; deployed mode has aggregates only
+    if not _live_warehouse():
+        return pd.DataFrame()
     return _q(
         """
         select date, service, sku, resource, project, region, quantity, unit, cost, currency
@@ -142,15 +182,15 @@ def raw_rows(platform: str, limit: int = 500) -> pd.DataFrame:
 
 
 def platforms() -> list[str]:
+    if not _live_warehouse():
+        df = _published("platform_summary")
+        return sorted(df["platform"].tolist()) if not df.empty else []
     df = _q("select distinct platform from usage_facts order by 1")
     return df["platform"].tolist() if not df.empty else []
 
 
 def warehouse_exists() -> bool:
-    if not Path(DB_PATH).exists():
-        return False
-    con = _con()
-    try:
-        return _has_table(con, "usage_facts")
-    finally:
-        con.close()
+    if _live_warehouse():
+        return True
+    # deployed: consider it "exists" if we have published aggregates
+    return (PUBLISHED / "platform_summary.parquet").exists()

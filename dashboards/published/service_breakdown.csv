@@ -1,0 +1,6 @@
+platform,service,unit,quantity,cost,line_items
+vercel,plan:hobby,projects,1.0,0.0,1
+supabase,supabase,requests,310.0,,1
+github,actions,Minutes,92.0,0.0,2
+github,codespaces,GigabyteHours,0.001260696,0.0,1
+github,codespaces,Hours,0.51199,0.0,1

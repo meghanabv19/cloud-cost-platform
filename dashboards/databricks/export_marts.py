@@ -19,7 +19,9 @@ if str(_ROOT) not in sys.path:
 
 from ingestion import config
 
-EXPORTS = config.settings.root / "data" / "exports"
+# Published INTO the repo so the deployed Streamlit app (and Databricks) can read
+# them without a live DuckDB warehouse. Small aggregates — safe to commit.
+EXPORTS = config.settings.root / "dashboards" / "published"
 
 # mart name -> fallback SQL over usage_facts (used if the mart table is absent)
 TARGETS: dict[str, str] = {

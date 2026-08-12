@@ -1,0 +1,21 @@
+# Full pipeline deps (ingestion + dbt + analysis + retention). Used by CI and for
+# local development. Install alongside the slim dashboard set:
+#     pip install -r requirements.txt -r requirements-pipeline.txt
+python-dotenv>=1.0
+PyYAML>=6.0
+requests>=2.32
+tenacity>=8.2
+
+# Cold archive (Cloudflare R2 via S3 API)
+boto3>=1.34
+
+# GCP (primary cost source)
+google-cloud-bigquery>=3.20
+google-cloud-billing>=1.13
+
+# Transform (pin to stable 1.9 — avoids the dbt 2.0 "Fusion" pre-release)
+dbt-core>=1.9,<1.10
+dbt-duckdb>=1.9,<1.10
+
+# Tests
+pytest>=8.0
