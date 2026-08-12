@@ -1,0 +1,13 @@
+# dbt runs against the same DuckDB warehouse the ingestion writes to.
+# DUCKDB_PATH is shared with the Python side (see ingestion/config.py).
+cloud_cost_platform:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('DUCKDB_PATH', 'data/warehouse.duckdb') }}"
+      threads: 1
+      # extensions dbt-duckdb can auto-load if needed (e.g. httpfs for R2 reads)
+      extensions:
+        - httpfs
+        - parquet

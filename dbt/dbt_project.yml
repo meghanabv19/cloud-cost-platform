@@ -1,0 +1,19 @@
+name: "cloud_cost_platform"
+version: "0.1.0"
+config-version: 2
+
+profile: "cloud_cost_platform"
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  cloud_cost_platform:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table

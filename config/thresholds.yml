@@ -1,0 +1,15 @@
+# Per-platform spend thresholds in USD.
+# The alerter fires when a platform's spend crosses its threshold, OR when the
+# anomaly detector flags a point. Use `null` for metric-only sources (no $ spend),
+# which are then evaluated by the anomaly detector only.
+#
+# Any value can be overridden per-run via an env var, e.g. THRESHOLD_GCP=120.
+
+thresholds:
+  claude: 50
+  aws: 20
+  gcp: 100
+  github: 10
+  supabase: 25
+  vercel: 20
+  dbt_cloud: null   # run metrics, not dollars — anomaly detection only
