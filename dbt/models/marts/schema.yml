@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: mart_platform_daily
+    description: "Per-platform daily cost + line-item count."
+    columns:
+      - name: platform
+        tests: [not_null]
+      - name: date
+        tests: [not_null]
+
+  - name: mart_platform_summary
+    description: "One row per platform: totals, span, metric-only flag."
+    columns:
+      - name: platform
+        tests: [not_null, unique]
+
+  - name: mart_service_breakdown
+    description: "Per platform/service/unit usage & cost."
+    columns:
+      - name: platform
+        tests: [not_null]
+
+  - name: mart_cross_platform_daily
+    description: "Total spend across all platforms per day."
+    columns:
+      - name: date
+        tests: [not_null, unique]

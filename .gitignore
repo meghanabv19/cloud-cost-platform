@@ -29,3 +29,7 @@ data/*.duckdb.wal
 
 # misc
 .DS_Store
+
+# local screenshots
+dashboard_preview.png
+.playwright-mcp/
