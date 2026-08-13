@@ -12,3 +12,4 @@ thresholds:
   vercel: 20
   dbt_cloud: null    # run metrics, not dollars — anomaly detection only
   duckdb: null       # local embedded storage — metric-only (size/rows)
+  entertainment: 40  # total monthly subscription spend (Netflix + Prime + ...)

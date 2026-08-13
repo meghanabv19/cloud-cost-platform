@@ -1,0 +1,36 @@
+# Entertainment subscription detection — PARSER CONFIG ONLY.
+#
+# This does NOT contain prices. It tells the Gmail receipt reader which senders to
+# look for; the actual amount + charge date are extracted from the real receipt
+# emails, so the "no manually-entered data" rule still holds.
+#
+# Per merchant:
+#   from            : substring matched against the sender address
+#   subject_contains: (optional) require this text in the subject
+#   amount_regex    : (optional) override the default currency-amount pattern
+#
+# Add/remove merchants freely. If a merchant sends no receipts to this inbox,
+# it's simply skipped (no row emitted).
+
+default_amount_regex: '[£$€]\s?([0-9]+(?:\.[0-9]{2})?)'
+since: "01 May 2026"          # how far back to scan
+mailbox: '"[Gmail]/All Mail"'  # search all mail, not just INBOX
+
+merchants:
+  Netflix:
+    from: netflix.com
+  Amazon Prime:
+    from: amazon
+    subject_contains: prime
+  Crunchyroll:
+    from: crunchyroll.com
+  Spotify:
+    from: spotify.com
+  Disney+:
+    from: disneyplus.com
+  YouTube Premium:
+    from: youtube.com
+    subject_contains: premium
+  Apple:
+    from: apple.com
+    subject_contains: receipt

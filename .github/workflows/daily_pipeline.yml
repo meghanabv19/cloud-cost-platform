@@ -56,6 +56,8 @@ jobs:
           DBT_CLOUD_ACCOUNT_ID: ${{ secrets.DBT_CLOUD_ACCOUNT_ID }}
           DBT_CLOUD_API_HOST: ${{ secrets.DBT_CLOUD_API_HOST }}
           ANTHROPIC_ADMIN_KEY: ${{ secrets.ANTHROPIC_ADMIN_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
         run: python -m ingestion
 
       # --- 2. dbt TRANSFORM + TEST ---

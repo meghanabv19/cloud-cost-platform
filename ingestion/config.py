@@ -106,6 +106,15 @@ def claude_creds() -> dict[str, Any]:
     return {"admin_key": env("ANTHROPIC_ADMIN_KEY", required=True)}
 
 
+def gmail_creds() -> dict[str, Any]:
+    # Reuse the same Gmail app password used for SMTP alerts unless overridden.
+    user = env("GMAIL_USER") or settings.smtp_user
+    pw = env("GMAIL_APP_PASSWORD") or settings.smtp_password
+    if not (user and pw):
+        raise MissingConfig("GMAIL_USER / GMAIL_APP_PASSWORD (or SMTP_USER/SMTP_PASSWORD) not set")
+    return {"user": user, "app_password": pw}
+
+
 def github_creds() -> dict[str, Any]:
     return {
         "token": env("GH_BILLING_TOKEN") or env("GITHUB_TOKEN", required=True),

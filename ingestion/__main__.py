@@ -15,9 +15,11 @@ from .supabase_usage import SupabaseUsage
 from .dbt_cloud_usage import DbtCloudUsage
 from .vercel_usage import VercelUsage
 from .duckdb_usage import DuckdbUsage
+from .entertainment_subs import EntertainmentSubs
 
 SOURCES = [
-    GithubUsage, VercelUsage, SupabaseUsage, DbtCloudUsage, DuckdbUsage, ClaudeUsage,
+    GithubUsage, VercelUsage, SupabaseUsage, DbtCloudUsage, DuckdbUsage,
+    EntertainmentSubs, ClaudeUsage,
 ]
 
 log = logging.getLogger("ingestion")

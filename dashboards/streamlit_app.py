@@ -36,6 +36,7 @@ PLATFORM_LABEL = {
     "supabase": "Supabase",
     "dbt_cloud": "dbt Cloud",
     "duckdb": "DuckDB",
+    "entertainment": "Entertainment",
 }
 
 
@@ -104,6 +105,26 @@ def _accounts_section() -> None:
     )
 
 
+def _entertainment_section() -> None:
+    """Personal entertainment subscriptions (from Gmail receipts) — real recurring $."""
+    apps = da.application_breakdown("entertainment")
+    if apps is None or apps.empty:
+        return
+    st.subheader("🎬 Entertainment subscriptions")
+    monthly = apps["cost"].fillna(0).sum()
+    st.metric("Monthly total", _fmt_usd(monthly))
+    show = apps.copy()
+    show["cost"] = show["cost"].map(_fmt_usd)
+    st.dataframe(
+        show.rename(columns={
+            "application": "Service", "cost": "Monthly cost",
+            "unit": "Billing", "last_seen": "Last charged",
+        })[["Service", "Monthly cost", "Billing", "Last charged"]],
+        use_container_width=True, hide_index=True,
+    )
+    st.caption("Parsed from receipt emails via Gmail (IMAP) — amounts come from the real emails.")
+
+
 def _headline_usage(usage) -> list[tuple[str, str]]:
     """Pick a few human-friendly headline usage numbers from the breakdown."""
     tiles: list[tuple[str, str]] = []
@@ -135,6 +156,7 @@ def page_summary() -> None:
     c3.metric("Metric-only sources", metric_only, help="Report usage but no $ (e.g. free tier / dbt Cloud)")
 
     _accounts_section()
+    _entertainment_section()
 
     # ---- Resource usage across platforms (the real story on a free-tier stack) ----
     st.subheader("Resource usage across platforms")
