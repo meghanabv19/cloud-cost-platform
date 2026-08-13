@@ -1,10 +1,10 @@
 platform,service,unit,quantity,cost,line_items,first_seen,last_seen
-duckdb,storage,rows,7.0,,1.0,2026-08-12,2026-08-12
-duckdb,storage,tables,2.0,,1.0,2026-08-12,2026-08-12
-duckdb,storage,MB,0.0117,,1.0,2026-08-12,2026-08-12
-github,actions,Minutes,94.0,0.0,2.0,2026-07-01,2026-08-01
+duckdb,storage,rows,7.0,,1.0,2026-08-13,2026-08-13
+duckdb,storage,tables,2.0,,1.0,2026-08-13,2026-08-13
+duckdb,storage,MB,0.0117,,1.0,2026-08-13,2026-08-13
+github,actions,Minutes,97.0,0.0,2.0,2026-07-01,2026-08-01
 github,codespaces,Hours,0.51199,0.0,1.0,2026-07-01,2026-07-01
 github,codespaces,GigabyteHours,0.001260696,0.0,1.0,2026-07-01,2026-07-01
-github,actions,GigabyteHours,1.6176e-05,0.0,1.0,2026-08-01,2026-08-01
-supabase,supabase,requests,327.0,,1.0,2026-08-12,2026-08-12
-vercel,plan:hobby,projects,1.0,0.0,1.0,2026-08-12,2026-08-12
+github,actions,GigabyteHours,0.000180506,0.0,1.0,2026-08-01,2026-08-01
+supabase,supabase,requests,302.0,,1.0,2026-08-13,2026-08-13
+vercel,plan:hobby,projects,1.0,0.0,1.0,2026-08-13,2026-08-13
