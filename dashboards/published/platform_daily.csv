@@ -1,6 +1,6 @@
 platform,date,month,cost,line_items,currency
 github,2026-07-01,2026-07-01,0.0,3.0,USD
 github,2026-08-01,2026-08-01,0.0,2.0,USD
-duckdb,2026-08-21,2026-08-01,,3.0,USD
-supabase,2026-08-21,2026-08-01,,1.0,USD
-vercel,2026-08-21,2026-08-01,0.0,1.0,USD
+duckdb,2026-08-22,2026-08-01,,3.0,USD
+supabase,2026-08-22,2026-08-01,,1.0,USD
+vercel,2026-08-22,2026-08-01,0.0,1.0,USD
