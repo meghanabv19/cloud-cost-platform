@@ -1,5 +1,5 @@
 platform,active_days,first_seen,last_seen,total_cost,is_metric_only,currency
 github,3,2026-07-01,2026-09-01,0.0,False,USD
-vercel,1,2026-09-02,2026-09-02,0.0,False,USD
-duckdb,1,2026-09-02,2026-09-02,,True,USD
-supabase,1,2026-09-02,2026-09-02,,True,USD
+vercel,1,2026-09-03,2026-09-03,0.0,False,USD
+duckdb,1,2026-09-03,2026-09-03,,True,USD
+supabase,1,2026-09-03,2026-09-03,,True,USD
