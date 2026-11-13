@@ -1,6 +1,6 @@
 platform,plan,is_free,last_active,trial_end,account_created,status,extra,synced_at
-github,free,True,2026-11-11 13:46:51.000000,,2023-07-04 13:11:58.000000,active,"{""last_active_repo"": ""cloud-cost-platform"", ""storage_bytes"": 976562499}",2026-11-12 14:49:50.583153
-vercel,hobby,True,2026-08-19 05:26:15.618000,,2026-08-03 13:02:43.014000,active,"{""last_deployment"": ""meg-portfolio""}",2026-11-12 14:49:51.723750
-supabase,free,True,,,2026-07-31 15:23:15.638185,INACTIVE,"{""note"": ""free projects pause after ~7 days of inactivity"", ""pg_version"": ""17.6.1.155"", ""region"": ""eu-west-1""}",2026-11-12 14:49:52.915562
-dbt_cloud,developer_2022,True,,2026-08-18 19:22:34.048772,2026-08-04 19:22:34.049982,trial,"{""developer_seats"": 1, ""name"": ""syniti""}",2026-11-12 14:49:53.575148
-duckdb,embedded,True,2026-11-12 14:49:53.602919,,,local,"{""engine"": ""duckdb 2.0.0"", ""path"": ""data/warehouse.duckdb""}",2026-11-12 14:49:53.602975
+github,free,True,2026-11-12 14:50:04.000000,,2023-07-04 13:11:58.000000,active,"{""last_active_repo"": ""cloud-cost-platform"", ""storage_bytes"": 976562499}",2026-11-13 14:10:37.811375
+vercel,hobby,True,2026-08-19 05:26:15.618000,,2026-08-03 13:02:43.014000,active,"{""last_deployment"": ""meg-portfolio""}",2026-11-13 14:10:39.175764
+supabase,free,True,,,2026-07-31 15:23:15.638185,INACTIVE,"{""note"": ""free projects pause after ~7 days of inactivity"", ""pg_version"": ""17.6.1.155"", ""region"": ""eu-west-1""}",2026-11-13 14:10:40.432441
+dbt_cloud,developer_2022,True,,2026-08-18 19:22:34.048772,2026-08-04 19:22:34.049982,trial,"{""developer_seats"": 1, ""name"": ""syniti""}",2026-11-13 14:10:41.584536
+duckdb,embedded,True,2026-11-13 14:10:41.614921,,,local,"{""engine"": ""duckdb 2.0.0"", ""path"": ""data/warehouse.duckdb""}",2026-11-13 14:10:41.615070
